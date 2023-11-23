@@ -34,10 +34,11 @@ class Client:
     def send_file(self):
         pass
     def init_com(self):
-        header = Header(src_ip=self.ip, dst_ip=self.server_ip, src_port=self.port, dst_port=self.server_port, syn=True)
-        
-        print(header.byte_frame)
-        self.sock.sendto(b''.join(header.byte_frame), (self.server_ip.get_str(), self.server_port))
+        header= Header(ID=1, target=0, SYN=True)
+        #header = Header(src_ip=self.ip, dst_ip=self.server_ip, src_port=self.port, dst_port=self.server_port, syn=True)
+    
+        #print(header.byte_frame)
+        self.sock.sendto(header.byte_frame, (self.server_ip.get_str(), self.server_port))
     
     def ter_comm(self):
         pass        

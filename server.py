@@ -2,6 +2,8 @@ import socket
 import time
 import threading
 
+from network_utils import Header, ComError
+
 #This is the configuration for the default server
 SERVER_IP = "192.168.1.225"
 SERVER_PORT = 50601
@@ -9,11 +11,12 @@ SERVER_PORT = 50601
 class Server:
     def __init__(self, ip, port) -> None:
         self.__running = False
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind((ip, port))
-        self.stop_event = threading.Event()
-        self.stop_event_2 = threading.Event()
-        self.sock.settimeout(1)
+        self.__sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.__sock.bind((ip, port))
+        self.__stop_event = threading.Event()
+        self.__stop_event_2 = threading.Event()
+        self.__sock.settimeout(1)
+        self.__comm_state = False
 
     def receive(self):
         try:
@@ -47,9 +50,36 @@ class Server:
 
                 #Here we process the data from the socket
                 if data:
+
+                    match data[4]:
+                        case 0:
+                            # no message or file sent
+                            # this is a signal, control or error message
+
+                            # lets check for flags first
+                            ID_l = int.from_bytes(data[0:2], byteorder='big', signed='False')
+                            flags = bin(data[6])
+
+                            #here we process flags
+                            if (flags >> 7) & 1:
+                                
+                                #this is a SYN message!
+                                if self.__comm_state == True:
+                                    frame = Header(ID_l=ID_l + 1, target=ID_l, error=ComError.COM_STARTED)
+
+                                self.__unresponded = 
+                        case 1:
+                            pass
+                            # a message
+                        
+                        case 2:
+                            pass
+                            #a text file
+
                     print("\nDetected data in the socket! Processing...")
                     print(data)
-                    bits = bin(data[12])
+                    bits = bin(data[6])
+                    print(bits)
 
                     data = None        
             except socket.timeout:
@@ -63,6 +93,9 @@ class Server:
 
     def send_response(self):
         self.sock.sendto(b"Message received...", self.client)
+
+
+
 
     def quit(self):
         print("Closing server...")
@@ -91,8 +124,8 @@ if __name__ == "__main__":
     server = Server(SERVER_IP, SERVER_PORT)
 
     #here we create a separate thread to listen for incoming data
-    #server_thread = threading.Thread(target=server.start)
-    #server_thread.start()
+    server_thread = threading.Thread(target=server.start)
+    server_thread.start()
 
     #here we listen to the user input from the console
     while 1:
