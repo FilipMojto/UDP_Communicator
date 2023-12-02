@@ -1,20 +1,42 @@
+import crcmod
+
 class BitManager:
 
     @staticmethod
-    def set_bit(byte, position):
-    #Set the bit at the specified position to 1.
-        return byte | (1 << position)
+    def set_bit(byte, position: int, value: bool):
+        ExceptionHandler.check_comp(obj=position, name="position", type=int, min=0)
+    
+        if value:
+            return byte | (1 << position)
+        else:
+            return byte & ~(1 << position)
 
-    @staticmethod
-    def clear_bit(byte, position):
-        #Clear the bit at the specified position to 0.
-        return byte & ~(1 << position)
+    # @staticmethod
+    # def clear_bit(byte, position):
+    #     #Clear the bit at the specified position to 0.
+    #     return byte & ~(1 << position)
 
     @staticmethod
     def toggle_bit(byte, position):
         #Inverse the bit at the specified position.
         return byte ^ (1 << position)
     
+    @staticmethod
+    def is_bit_set(byte, pos: int):
+        return (byte & (1 << pos)) != 0
+
+# @staticmethod
+# def calculate_crc16(frame):
+#     crc16_func = crcmod.mkCrcFun(0x18005, initCrc=0xFFFF, xorOut=0xFFFF)
+
+#     # Calculate the CRC-16 checksum of the frame
+#     checksum = crc16_func(frame)
+
+#     # Convert the 16-bit checksum to a bytes object (2 bytes)
+#     crc16_bytes = checksum.to_bytes(2, byteorder='little')
+
+#     return crc16_bytes
+
 class ExceptionHandler:
 
     @staticmethod

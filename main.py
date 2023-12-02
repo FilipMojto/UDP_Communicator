@@ -3,7 +3,7 @@ import time
 import threading
 from client import Client
 from server import Server
-from network_utils import IPv4, Header
+from network_utils import IPv4, Frame
 from utils import BitManager
 from node import Node
 
