@@ -1,0 +1,27 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Run Python Script",
+        "type": "shell",
+        "command": "${workspaceFolder}/.venv/pks/Scripts/python.exe", // Path to your virtual environment's Python interpreter
+        "args": [
+          "-m",
+          "main"
+        ],
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        "presentation": {
+          "reveal": "always"
+        },
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "problemMatcher": [
+          "$tsc"
+        ]
+      }
+    ]
+  }

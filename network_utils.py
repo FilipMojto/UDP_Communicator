@@ -1,4 +1,4 @@
-import crcmod, threading, socket, time
+import crcmod, threading, socket, time, random
 from typing import List, Dict
 
 from utils import BitManager, ExceptionHandler
@@ -55,24 +55,24 @@ class Port:
         return False
 
      #header structure:
-    #   a) ID
-    #   b) Target
-    #   c) Flags
-    #   d) FCS
+    #   a) ID (3B)
+    #   b) Target (3B)
+    #   c) Flags (1B)
+    #   d) FCS (2B)
 
     # Flags:
     #   a) SYN
     #   b) ACK
     #   c) NACK
     #   d) FIN
-    #   e) CONTROL
+    #   e) CNTRL
     #   f) SET
     #   g) QUIT
     #   h) MORE FRAGS
 
 class Frame:
     ID_MIN = 1
-    ID_MAX = 65536
+    ID_MAX = 16777216
 
     ID_START: int = 0
     ID_END: int = ID_START + 2
@@ -94,7 +94,6 @@ class Frame:
     MORE_FRAGS_POS = QUIT_BIT_POS - 1
 
     def frame(self):
-        
         print("")
 
         print(f"ID: {self.get_ID_dec()}")
@@ -111,7 +110,6 @@ class Frame:
         
         print(f"FCS: {self.calculate_FCS()}")
 
-
     @staticmethod
     def get_header_len() -> int:
         return Frame.__HEADER_LENGTH
@@ -122,7 +120,22 @@ class Frame:
 
         if len(frame) < Frame.__HEADER_LENGTH:
             raise ValueError(f"Invalid minimum frame size for parameter frame! The required size: {Frame.__HEADER_LENGTH}")
-        
+
+    @staticmethod
+    def corrupt_data(frame: bytearray, corruption: float = 0.10) -> bytearray:
+
+        # Calculate the number of bytes to corrupt
+        num_bytes_to_corrupt = int(len(frame) * corruption / 100)
+
+        # Get random indices to corrupt
+        indices_to_corrupt = random.sample(range(len(frame)), num_bytes_to_corrupt)
+
+        # Corrupt the data at selected indices
+        for index in indices_to_corrupt:
+            # Flip a random bit in the byte at the selected index
+            frame[index] = frame[index] ^ (1 << random.randint(0, 7))
+
+        return frame 
    
     def get_ID(self) -> bytearray:
         return self.byte_frame[Frame.ID_START:Frame.ID_END + 1]
@@ -136,71 +149,88 @@ class Frame:
     def get_target_dec(self) -> int:
         return int.from_bytes(self.get_target(), byteorder='big')
 
-    def set_target(self, target: int) -> None:
+    def set_target(self, target: int, recalculate: bool = True) -> None:
         ExceptionHandler.check_comp(obj=target, name="target", type=int, min=0)
         target_b = target.to_bytes(2, byteorder="big")
         self.byte_frame[Frame.TARGET_START] = target_b[0]
         self.byte_frame[Frame.TARGET_END] = target_b[1]
-
-        self.__recalculate_csc()
+        
+        if recalculate:
+            self.__recalculate_csc()
     
     def is_syn(self) -> bool:
         return BitManager.is_bit_set(self.byte_frame[Frame.FLAG_INDEX], Frame.SYN_BIT_POS)
 
-    def set_syn(self, flag: bool) -> None:
+    def set_syn(self, flag: bool, recalculate: bool = True) -> None:
         self.byte_frame[self.FLAG_INDEX] = BitManager.set_bit(byte=self.byte_frame[self.FLAG_INDEX], position=Frame.SYN_BIT_POS, value=flag)
-        self.__recalculate_csc()
+        
+        if recalculate:
+            self.__recalculate_csc()
 
     def is_ack(self) -> bool:
         return BitManager.is_bit_set(self.byte_frame[Frame.FLAG_INDEX], Frame.ACK_BIT_POS)
     
-    def set_ack(self, flag: bool) -> None:
+    def set_ack(self, flag: bool, recalculate: bool = True) -> None:
         self.byte_frame[self.FLAG_INDEX] = BitManager.set_bit(byte=self.byte_frame[self.FLAG_INDEX], position=Frame.ACK_BIT_POS, value=flag)
-        self.__recalculate_csc()
+        
+        if recalculate:
+            self.__recalculate_csc()
 
     def is_nack(self) -> bool:
         return BitManager.is_bit_set(self.byte_frame[self.FLAG_INDEX], Frame.NACK_BIT_POS)
 
-    def set_nack(self, flag: bool) -> None:
+    def set_nack(self, flag: bool, recalculate: bool = True) -> None:
         self.byte_frame[self.FLAG_INDEX] = BitManager.set_bit(byte=self.byte_frame[self.FLAG_INDEX], position=Frame.NACK_BIT_POS, value=flag)
-        self.__recalculate_csc()
+        
+        if recalculate:
+            self.__recalculate_csc()
 
     def is_fin(self) -> bool:
         return BitManager.is_bit_set(self.byte_frame[self.FLAG_INDEX], Frame.FIN_BIT_POS)
 
-    def set_fin(self, flag: bool) -> None:
+    def set_fin(self, flag: bool, recalculate: bool = True) -> None:
         self.byte_frame[self.FLAG_INDEX] = BitManager.set_bit(byte=self.byte_frame[self.FLAG_INDEX], position=Frame.FIN_BIT_POS, value=flag)
-        self.__recalculate_csc()
+        
+        if recalculate:
+            self.__recalculate_csc()
 
     def is_control(self) -> bool:
         return BitManager.is_bit_set(self.byte_frame[self.FLAG_INDEX], Frame.CONTROL_BIT_POS)
     
-    def set_control(self, flag: bool) -> None:
+    def set_control(self, flag: bool, recalculate: bool = True) -> None:
         self.byte_frame[self.FLAG_INDEX] = BitManager.set_bit(byte=self.byte_frame[self.FLAG_INDEX], position=Frame.CONTROL_BIT_POS, value=flag)
-        self.__recalculate_csc()
+        
+        if recalculate:
+            self.__recalculate_csc()
 
     def is_set(self) -> bool:
         return BitManager.is_bit_set(self.byte_frame[self.FLAG_INDEX], Frame.SET_BIT_POS)
     
-    def set_set(self, flag: bool) -> None:
+    def set_set(self, flag: bool, recalculate: bool = True) -> None:
         self.byte_frame[self.FLAG_INDEX] = BitManager.set_bit(byte=self.byte_frame[self.FLAG_INDEX], position=Frame.SET_BIT_POS, value=flag)
-        self.__recalculate_csc()
+        
+        if recalculate:
+            self.__recalculate_csc()
 
     def is_quit(self) -> bool:
         return BitManager.is_bit_set(self.byte_frame[self.FLAG_INDEX], Frame.QUIT_BIT_POS)
     
-    def set_quit(self, flag: bool) -> None:
+    def set_quit(self, flag: bool, recalculate: bool = True) -> None:
         self.byte_frame[self.FLAG_INDEX] = BitManager.set_bit(byte=self.byte_frame[self.FLAG_INDEX], position=Frame.QUIT_BIT_POS, value=flag)
-        self.__recalculate_csc()
+        
+        if recalculate:
+            self.__recalculate_csc()
 
 
     def is_more_frags(self) -> bool:
         return BitManager.is_bit_set(self.byte_frame[self.FLAG_INDEX], Frame.MORE_FRAGS_POS)
     
     
-    def set_more_frags(self, flag : bool):
+    def set_more_frags(self, flag : bool, recalculate: bool = True):
         self.byte_frame[self.FLAG_INDEX] = BitManager.set_bit(byte=self.byte_frame[self.FLAG_INDEX], position=Frame.MORE_FRAGS_POS, value=flag)
-        self.__recalculate_csc()
+        
+        if recalculate: 
+            self.__recalculate_csc()
 
     def contains_payload(self) -> bool:
         if len(self.byte_frame) > self.__HEADER_LENGTH:
@@ -242,9 +272,8 @@ class Frame:
         for i in range(0, self.__CRC_LENGTH):
             self.byte_frame[length - self.__CRC_LENGTH + i] = crc[i]
 
-        #self.byte_frame[length - 1] = crc[1]
 
-    def __init__(self, ID : int = 0, target : int = 0, #type : FrameType = FrameType.NO_DATA,
+    def __init__(self, ID : int = 0, target : int = 0,
                  SYN: bool=False, ACK: bool=False, NACK: bool=False, FIN: bool=False, CONTROL: bool=False, SET: bool=False, QUIT: bool=False,
                  MORE_FRAGS: bool=False, frame: bytearray = None, payload = None) -> None:
 
@@ -271,9 +300,6 @@ class Frame:
 
         for i in range(0, len(target_b)):
             self.byte_frame.append(target_b[i])
-
-        #self.byte_frame.append(target_b[0])
-        #self.byte_frame.append(target_b[1])
         
         flags = 0b00000000
 
@@ -307,10 +333,11 @@ class Frame:
 
 class KeepRespondedSlidingWindow:
     
-    def __init__(self, socket: socket.socket, node_2: tuple, lock: threading.Lock, window_limit: int = 7) -> None:
+    def __init__(self, socket: socket.socket, node_2: tuple, lock: threading.Lock, window_limit: int = 7, count: int = 5) -> None:
         ExceptionHandler.check_comp(obj=window_limit, name="window_limit", type=int, min=0)
         
         self.__window_limit: int = window_limit
+        self.__count = count
         self.__frames: List[Dict[Frame, int]] = []
         self.__sock = socket
         self.__node_2 = node_2
@@ -320,25 +347,29 @@ class KeepRespondedSlidingWindow:
         self.__keeping_responded = False
         self.__stop_signal: threading.Event = threading.Event()
 
-    def __resend_frames(self, sleep: int = 3):
+    def __resend_frames(self, sleep: int = 1):
 
         while not self.__stop_signal.is_set():
             
             with self.__access_lock:
-
+                #print(len(self.__frames))
                 for frame in self.__frames:
                     if frame['count'] == 0:
                         print("Unresponded frame detected! Resending... ")
-                        
+                    
+
                         with self.__lock:
                             self.__sock.sendto(frame['frame'].byte_frame, self.__node_2)
+                        
+                        frame['count'] = self.__count
                     else:
+                        #print("Decreasingt the count...")
                         frame['count'] -= 1
 
             
             time.sleep(sleep)
 
-    def keep_responded(self, sleep: int = 3):
+    def keep_responded(self, sleep: int = 1):
         print("Starting the keep-responded process...", end=" ")
 
         if self.__keeping_responded:
@@ -380,7 +411,7 @@ class KeepRespondedSlidingWindow:
                 return False
             
             self.__frames.append({'frame': frame,
-                                  'count': 3})
+                                  'count': self.__count})
 
         return True
 
@@ -439,7 +470,11 @@ class FragmentSequence:
         if self.contains_start and self.contains_end:
             self.complete = True
 
-        
+    def reanalyze(self) -> int:
+        self.__analyze_frag(fragment=self.root.frame)
+        self.__analyze_frag(fragment=self.last.frame)
+
+
     def clear(self):
         self.root = None
         self.last = None
@@ -451,7 +486,6 @@ class FragmentSequence:
         return self.complete
 
     def push(self, frame: Frame) -> int:
-        frame.frame()
 
         if not FragmentSequence.is_fragment(frame):
             raise TypeError("Passed frame is not a fragment!")
@@ -495,22 +529,25 @@ class FragmentSequence:
 class FragmentSequenceProcessor:
 
     @staticmethod
-    def join(seq_1: FragmentSequence, seq_2: FragmentSequence) -> bool:
+    def join(seq_1: FragmentSequence, seq_2: FragmentSequence) -> int:
         
-        if seq_1.root.frame.get_target() == seq_2.last.frame.get_ID_dec():
+        if seq_1.root.frame.get_target_dec() == seq_2.last.frame.get_ID_dec():
             seq_1.root.prev = seq_2.last
+            seq_2.last.next = seq_1.root
             seq_1.root = seq_2.root
-            return True
-        elif seq_2.root.frame.get_target() == seq_1.last.frame.get_ID_dec():
+            print("JOINED1!")
+            return 1
+
+        elif seq_2.root.frame.get_target_dec() == seq_1.last.frame.get_ID_dec():
             seq_2.root.prev = seq_1.last
+            seq_1.last.next = seq_2.root
             seq_2.root = seq_1.root
-            return True
+            print("JOINED2!")
+            return 2
         
-        return False
+        return 0
                 
     def push(self, frame: Frame) -> FragmentSequence:
-        
-        
         #lets check the frame configuration
 
         for seq in self.__sequences:
@@ -522,23 +559,50 @@ class FragmentSequenceProcessor:
 
                     self.__sequences.remove(seq)
 
-                    return completed
+                    return seq
+                    # return 1
                 
                 for seq2 in self.__sequences:
-                    if seq != seq2 and FragmentSequenceProcessor.join(seq_1=seq, seq_2=seq2):
-                        return None
+                    
+                    if seq != seq2:
+                        result = FragmentSequenceProcessor.join(seq_1=seq, seq_2=seq2)
+                        if result == 1:
+                            print("Joining...")
+                            self.__sequences.remove(seq2)
+                            seq.reanalyze()
 
+                            if seq.is_complete():
+                                print("Joining...")
+                                #return 1
+                                self.__sequences.remove(seq)
+                                return seq
+                            return None
+                            #return 2
+                        elif result == 2:
+                            self.__sequences.remove(seq)
+                            seq2.reanalyze()
+
+                            if seq2.is_complete():
+                                #return 1
+                                self.__sequences.remove(seq2)
+                                return seq2
+                            #return 2
+                            return None
+                else:    
+                    #return 0
+                    return None
+                    
                 return None
+                #return 3
         else:
-            self.__sequences.append( FragmentSequence(root=frame) )    
+            print("New sequence has been created!")
+            self.__sequences.append( FragmentSequence(root=frame) )   
+            return None 
 
     def __init__(self) -> None:
 
         self.__sequences: List[FragmentSequence] = []
         pass
-
-
-
 
 
 class KeepAliveSlidingWindow:
